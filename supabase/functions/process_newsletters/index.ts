@@ -27,25 +27,32 @@ class GmailApiClient {
       return this.accessToken;
     }
 
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        refresh_token: this.refreshToken,
-        grant_type: 'refresh_token',
-      }),
-    });
+    try {
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          refresh_token: this.refreshToken,
+          grant_type: 'refresh_token',
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Gmail auth failed: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`Gmail OAuth failed: ${response.status} - ${errorData}`);
+        throw new Error(`Gmail auth failed: ${response.status} - ${errorData}`);
+      }
+
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      this.tokenExpiresAt = Date.now() + (data.expires_in * 1000) - 60000;
+      return this.accessToken;
+    } catch (error) {
+      console.error('Gmail authentication error:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    this.accessToken = data.access_token;
-    this.tokenExpiresAt = Date.now() + (data.expires_in * 1000) - 60000;
-    return this.accessToken;
   }
 
   private async rateLimitedRequest(url: string, options: RequestInit = {}): Promise<Response> {
@@ -73,7 +80,7 @@ class GmailApiClient {
     return response;
   }
 
-  async fetchNewsletterEmails(maxResults: number = 50) {
+  async fetchNewsletterEmails(maxResults = 50, daysBack = 7) {
     const newsletterQueries = [
       'from:theneuron@newsletter.theneurondaily.com OR from:theneuron.ai',
       'from:dan@tldrnewsletter.com OR from:tldr.tech',
@@ -81,28 +88,47 @@ class GmailApiClient {
       'from:futuretools@mail.beehiiv.com',
       'from:aibreakfast@mail.beehiiv.com'
     ];
-
     const allEmails = [];
-
+    
+    console.log(`Starting email search with ${newsletterQueries.length} queries`);
+    
     for (const query of newsletterQueries) {
-      const searchUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query + ' newer_than:1d')}&maxResults=${maxResults}`;
+      const searchUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query + ` newer_than:${daysBack}d`)}&maxResults=${maxResults}`;
+      
+      console.log(`Searching query: ${query}`);
+      console.log(`Search URL: ${searchUrl}`);
+      
       const searchResponse = await this.rateLimitedRequest(searchUrl);
       
-      if (!searchResponse.ok) continue;
-
+      console.log(`Search response status: ${searchResponse.status}`);
+      
+      if (!searchResponse.ok) {
+        console.error(`Search failed for query "${query}": ${searchResponse.status}`);
+        continue;
+      }
+      
       const searchData = await searchResponse.json();
       const messages = searchData.messages || [];
-
+      
+      console.log(`Query "${query}" found ${messages.length} messages`);
+      
       for (const message of messages) {
         try {
+          console.log(`Fetching details for message ${message.id}`);
           const email = await this.fetchEmailDetails(message.id);
-          if (email) allEmails.push(email);
+          if (email) {
+            console.log(`Successfully processed email from ${email.newsletter}: ${email.subject}`);
+            allEmails.push(email);
+          } else {
+            console.log(`Failed to get email details for message ${message.id}`);
+          }
         } catch (error) {
           console.error(`Failed to fetch email ${message.id}:`, error);
         }
       }
     }
-
+    
+    console.log(`Total emails collected: ${allEmails.length}`);
     return allEmails.sort((a, b) => b.date.getTime() - a.date.getTime());
   }
 
@@ -274,8 +300,8 @@ Deno.serve(async (req) => {
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
     const googleRefreshToken = Deno.env.get('GOOGLE_REFRESH_TOKEN');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseUrl = Deno.env.get('PROJECT_URL');  // Changed from SUPABASE_URL
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY');  // Changed from SUPABASE_SERVICE_ROLE_KEY
 
     if (!googleClientId || !googleClientSecret || !googleRefreshToken || !supabaseUrl || !serviceKey) {
       return new Response('Missing required environment variables', { status: 500 });

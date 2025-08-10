@@ -7,34 +7,17 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
 
-function loadEnv() {
-  try {
-    const envPath = join(__dirname, '..', '.env');
-    const envContent = readFileSync(envPath, 'utf8');
-    const env = {};
-    
-    envContent.split('\n').forEach(line => {
-      const [key, ...valueParts] = line.split('=');
-      if (key && valueParts.length > 0) {
-        env[key.trim()] = valueParts.join('=').trim();
-      }
-    });
-    
-    return env;
-  } catch (error) {
-    console.log('❌ No .env file found');
-    return {};
-  }
-}
+// Load environment variables from .env file
+dotenv.config({ path: join(__dirname, '..', '.env') });
 
-const env = loadEnv();
-const CLIENT_ID = env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET;
-const REFRESH_TOKEN = env.GOOGLE_REFRESH_TOKEN;
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN;
 
 async function testGmailIntegration() {
   console.log('🧪 Testing Gmail API Integration');
@@ -177,9 +160,7 @@ async function searchNewsletterEmails(accessToken) {
   }
 }
 
-// Run the test if this script is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  testGmailIntegration().catch(console.error);
-}
+// Run the test
+testGmailIntegration().catch(console.error);
 
 export { testGmailIntegration };

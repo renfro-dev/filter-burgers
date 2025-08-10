@@ -41,6 +41,8 @@ Migrating a complex n8n newsletter processing workflow to Supabase Edge Function
 - 🔄 Test full pipeline in production
 - 🔄 Monitor performance and costs
 
+**📋 Detailed task tracking available in `tasks/production-deployment-tasks.md`**
+
 ## Next Steps 🚀
 
 ### Immediate (This Session)

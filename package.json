@@ -10,7 +10,8 @@
     "test-gmail": "node scripts/test-gmail-integration.js",
     "check-newsletters": "node scripts/check-newsletters.js",
     "oauth-helper": "node scripts/oauth-helper.js",
-    "test-ai": "node scripts/test-ai-summarization.js"
+    "test-ai": "node scripts/test-ai-summarization.js",
+    "process-newsletters": "node scripts/process-newsletters-with-ai.js"
   },
   "keywords": [
     "newsletter",
