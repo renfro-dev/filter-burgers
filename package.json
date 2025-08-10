@@ -9,7 +9,8 @@
     "setup-oauth": "node scripts/setup-oauth.js",
     "test-gmail": "node scripts/test-gmail-integration.js",
     "check-newsletters": "node scripts/check-newsletters.js",
-    "oauth-helper": "node scripts/oauth-helper.js"
+    "oauth-helper": "node scripts/oauth-helper.js",
+    "test-ai": "node scripts/test-ai-summarization.js"
   },
   "keywords": [
     "newsletter",
@@ -27,6 +28,10 @@
     "@types/node": "^20.0.0"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "@anthropic-ai/sdk": "^0.59.0",
+    "anthropic": "^0.0.0",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "openai": "^5.12.2"
   }
 }

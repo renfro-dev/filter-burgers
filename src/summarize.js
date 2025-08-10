@@ -1,38 +1,66 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 
-// Types for summarization
-export interface SummarizationInput {
-  title?: string;
-  summary?: string;
-  content?: string;
-  url?: string;
-  maxLength?: number;
+// Main summarization function
+export async function summarize(input) {
+  const providers = [];
+  
+  // Initialize available providers based on environment variables
+  if (process.env.OPENAI_API_KEY) {
+    providers.push(new OpenAIProvider(process.env.OPENAI_API_KEY));
+  }
+  
+  if (process.env.ANTHROPIC_API_KEY) {
+    providers.push(new AnthropicProvider(process.env.ANTHROPIC_API_KEY));
+  }
+
+  if (providers.length === 0) {
+    // No AI providers available, return fallback
+    return {
+      summary: input.summary || input.title || 'No content to summarize',
+      provider: 'fallback',
+      model: 'none',
+      error: 'No AI API keys configured'
+    };
+  }
+
+  // Use hybrid provider if multiple available, otherwise use single provider
+  const provider = providers.length > 1 ? 
+    new HybridProvider(providers) : 
+    providers[0];
+
+  return await provider.summarize(input);
 }
 
-export interface SummarizationResult {
-  summary: string;
-  provider: string;
-  model: string;
-  tokensUsed?: number;
-  error?: string;
-}
-
-export interface AIProvider {
-  name: string;
-  summarize(input: SummarizationInput): Promise<SummarizationResult>;
+// Utility function for batch summarization
+export async function summarizeBatch(inputs) {
+  const results = [];
+  
+  for (const input of inputs) {
+    try {
+      const result = await summarize(input);
+      results.push(result);
+    } catch (error) {
+      results.push({
+        summary: '',
+        provider: 'error',
+        model: 'none',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+  
+  return results;
 }
 
 // OpenAI Provider
-class OpenAIProvider implements AIProvider {
-  name = 'openai';
-  private client: OpenAI;
-
-  constructor(apiKey: string) {
+class OpenAIProvider {
+  constructor(apiKey) {
+    this.name = 'openai';
     this.client = new OpenAI({ apiKey });
   }
 
-  async summarize(input: SummarizationInput): Promise<SummarizationResult> {
+  async summarize(input) {
     try {
       const content = this.prepareContent(input);
       const maxLength = input.maxLength || 150;
@@ -71,7 +99,7 @@ class OpenAIProvider implements AIProvider {
     }
   }
 
-  private prepareContent(input: SummarizationInput): string {
+  prepareContent(input) {
     if (input.content) return input.content;
     if (input.summary) return input.summary;
     if (input.title) return input.title;
@@ -80,15 +108,13 @@ class OpenAIProvider implements AIProvider {
 }
 
 // Anthropic Provider
-class AnthropicProvider implements AIProvider {
-  name = 'anthropic';
-  private client: Anthropic;
-
-  constructor(apiKey: string) {
+class AnthropicProvider {
+  constructor(apiKey) {
+    this.name = 'anthropic';
     this.client = new Anthropic({ apiKey });
   }
 
-  async summarize(input: SummarizationInput): Promise<SummarizationResult> {
+  async summarize(input) {
     try {
       const content = this.prepareContent(input);
       const maxLength = input.maxLength || 150;
@@ -129,7 +155,7 @@ Please provide your summary:`
     }
   }
 
-  private prepareContent(input: SummarizationInput): string {
+  prepareContent(input) {
     if (input.content) return input.content;
     if (input.summary) return input.summary;
     if (input.title) return input.title;
@@ -138,15 +164,13 @@ Please provide your summary:`
 }
 
 // Hybrid Provider (tries multiple providers with fallback)
-class HybridProvider implements AIProvider {
-  name = 'hybrid';
-  private providers: AIProvider[];
-
-  constructor(providers: AIProvider[]) {
+class HybridProvider {
+  constructor(providers) {
+    this.name = 'hybrid';
     this.providers = providers;
   }
 
-  async summarize(input: SummarizationInput): Promise<SummarizationResult> {
+  async summarize(input) {
     for (const provider of this.providers) {
       try {
         const result = await provider.summarize(input);
@@ -167,7 +191,7 @@ class HybridProvider implements AIProvider {
     return this.fallbackSummarization(input);
   }
 
-  private fallbackSummarization(input: SummarizationInput): SummarizationResult {
+  fallbackSummarization(input) {
     const content = input.content || input.summary || input.title || '';
     const words = content.split(/\s+/).slice(0, 50).join(' ');
     
@@ -179,60 +203,3 @@ class HybridProvider implements AIProvider {
     };
   }
 }
-
-// Main summarization function
-export async function summarize(input: SummarizationInput): Promise<SummarizationResult> {
-  const providers: AIProvider[] = [];
-  
-  // Initialize available providers based on environment variables
-  if (process.env.OPENAI_API_KEY) {
-    providers.push(new OpenAIProvider(process.env.OPENAI_API_KEY));
-  }
-  
-  if (process.env.ANTHROPIC_API_KEY) {
-    providers.push(new AnthropicProvider(process.env.ANTHROPIC_API_KEY));
-  }
-
-  if (providers.length === 0) {
-    // No AI providers available, return fallback
-    return {
-      summary: input.summary || input.title || 'No content to summarize',
-      provider: 'fallback',
-      model: 'none',
-      error: 'No AI API keys configured'
-    };
-  }
-
-  // Use hybrid provider if multiple available, otherwise use single provider
-  const provider = providers.length > 1 ? 
-    new HybridProvider(providers) : 
-    providers[0];
-
-  return await provider.summarize(input);
-}
-
-// Utility function for batch summarization
-export async function summarizeBatch(
-  inputs: SummarizationInput[]
-): Promise<SummarizationResult[]> {
-  const results: SummarizationResult[] = [];
-  
-  for (const input of inputs) {
-    try {
-      const result = await summarize(input);
-      results.push(result);
-    } catch (error) {
-      results.push({
-        summary: '',
-        provider: 'error',
-        model: 'none',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-  
-  return results;
-}
-
-// Export provider classes for testing
-export { OpenAIProvider, AnthropicProvider, HybridProvider };
