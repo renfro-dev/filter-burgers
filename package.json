@@ -1,0 +1,32 @@
+{
+  "name": "filter-burgers",
+  "version": "1.0.0",
+  "description": "Newsletter processing system migrated from n8n to Supabase Edge Functions",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "node --test tests/",
+    "setup-oauth": "node scripts/setup-oauth.js",
+    "test-gmail": "node scripts/test-gmail-integration.js",
+    "check-newsletters": "node scripts/check-newsletters.js",
+    "oauth-helper": "node scripts/oauth-helper.js"
+  },
+  "keywords": [
+    "newsletter",
+    "gmail-api",
+    "supabase",
+    "edge-functions",
+    "content-processing"
+  ],
+  "author": "JoshR",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
